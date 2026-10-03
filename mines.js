@@ -51,4 +51,13 @@ function toggleFlag(b, i) {
   c.flag = !c.flag;
 }
 
-if (typeof module !== 'undefined') module.exports = { makeBoard, neighbors, reveal, toggleFlag };
+// Clicking an open number whose mines are all flagged reveals its other neighbors.
+function chord(b, i) {
+  const c = b.cells[i];
+  if (b.state !== 'playing' || !c.open || !c.n) return;
+  const around = neighbors(b, i);
+  if (around.filter(j => b.cells[j].flag).length !== c.n) return;
+  around.forEach(j => reveal(b, j));
+}
+
+if (typeof module !== 'undefined') module.exports = { makeBoard, neighbors, reveal, toggleFlag, chord };

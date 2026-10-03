@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { makeBoard, reveal, toggleFlag } = require('./mines.js');
+const { makeBoard, neighbors, reveal, toggleFlag, chord } = require('./mines.js');
 
 // Seeded rand so failures reproduce.
 let s = 42; const rand = () => (s = (s * 16807) % 2147483647) / 2147483647;
@@ -51,4 +51,26 @@ allFlags.cells.forEach((c, i) => { if (c.mine) toggleFlag(allFlags, i); });
 assert.strictEqual(allFlags.cells.filter(c => c.flag).length, allFlags.mines);
 allFlags.cells.forEach((c, i) => { if (!c.mine) reveal(allFlags, i); });
 assert.strictEqual(allFlags.state, 'won');
+// Chord: clicking a number with all its mines flagged reveals the other neighbors.
+const ch = makeBoard(9, 9, 10);
+reveal(ch, 40, rand);
+const num = ch.cells.findIndex(c => c.open && c.n > 0);
+const around = neighbors(ch, num);
+const before = ch.cells.map(c => c.open).join();
+chord(ch, num);
+assert.strictEqual(ch.cells.map(c => c.open).join(), before, 'not enough flags: nothing happens');
+around.forEach(j => { if (ch.cells[j].mine && !ch.cells[j].flag) toggleFlag(ch, j); });
+chord(ch, num);
+assert.ok(around.every(j => ch.cells[j].mine ? ch.cells[j].flag : ch.cells[j].open), 'safe neighbors opened');
+assert.notStrictEqual(ch.state, 'lost');
+// A wrong flag makes the chord hit a mine.
+const wrong = makeBoard(9, 9, 10);
+reveal(wrong, 40, rand);
+const w = wrong.cells.findIndex((c, i) => c.open && c.n > 0 && neighbors(wrong, i).some(j => !wrong.cells[j].open && !wrong.cells[j].mine));
+// Flag n safe cells (wrong), leaving the real mine unflagged.
+const wn = neighbors(wrong, w), safeClosed = wn.filter(j => !wrong.cells[j].open && !wrong.cells[j].mine);
+assert.ok(safeClosed.length >= wrong.cells[w].n);
+safeClosed.slice(0, wrong.cells[w].n).forEach(j => toggleFlag(wrong, j));
+chord(wrong, w);
+assert.strictEqual(wrong.state, 'lost', 'wrong flag explodes');
 console.log('ok');

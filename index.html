@@ -1,9 +1,16 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ALLMINE</title>
+<meta name="description" content="Clear the Strait of Hormuz without hitting a mine in this Minesweeper remake." />
+<meta property="og:title" content="ALLMINE" />
+<meta property="og:description" content="Clear the Strait of Hormuz without hitting a mine in this Minesweeper remake." />
+<meta property="og:image" content="https://gilabarreto.github.io/allmine/og.png" />
+<meta property="og:url" content="https://gilabarreto.github.io/allmine/" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💣</text></svg>" />
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; }
@@ -72,15 +79,15 @@
 <body>
 <main id="game" aria-label="ALLMINE">
 <div id="hud">
-  <div id="counter"><span id="title">ALLMINE</span><button id="difficulty" class="key" data-level="0" aria-label="Nível 1 de 3. Clique para mudar o nível" title="Level 1 / 3">💣</button></div>
-  <button id="face" class="key" aria-label="Novo jogo"><img id="faceImg" src="trump.webp" alt=""></button>
-  <div id="flagControls"><button id="flagMode" class="key" aria-pressed="false" aria-label="Modo bandeira (ou botão direito)">🚩</button><span id="left"></span></div>
+  <div id="counter"><span id="title">ALLMINE</span><button id="difficulty" class="key" data-level="0" aria-label="Level 1 of 3. Click to change the level" title="Level 1 / 3">💣</button></div>
+  <button id="face" class="key" aria-label="New game"><img id="faceImg" src="trump.webp" alt=""></button>
+  <div id="flagControls"><button id="flagMode" class="key" aria-pressed="false" aria-label="Flag mode (or right-click)">🚩</button><span id="left"></span></div>
 </div>
 <div id="mapFrame">
 <div id="stage">
   <div id="bar"></div>
   <div id="grid"></div>
-  <img id="map" src="hormuz.webp" alt="Estreito de Ormuz">
+  <img id="map" src="hormuz.webp" alt="Strait of Hormuz">
 <nav id="infoNav" aria-label="Game information">
   <button type="button" data-dialog="aboutDialog" aria-haspopup="dialog"><span>ABOUT</span><span class="boat" aria-hidden="true">⛵</span></button>
   <button type="button" data-dialog="helpDialog" aria-haspopup="dialog"><span>HELP</span><span class="boat" aria-hidden="true">⛵</span></button>
@@ -88,21 +95,22 @@
 </div>
 </div>
 </main>
-<dialog id="aboutDialog" class="infoDialog" aria-labelledby="aboutTitle" lang="en">
+<dialog id="aboutDialog" class="infoDialog" aria-labelledby="aboutTitle">
   <h2 id="aboutTitle">ABOUT ALLMINE</h2>
   <p>ALLMINE is a modern-day take on the classic Minesweeper game. Clear the sea without hitting a mine: numbers show how many mines are nearby, and flags help you mark suspicious spots.</p>
   <p>Victor Barreto, a developer and retro gaming enthusiast, recreated and developed this game. <a href="https://github.com/gilabarreto" target="_blank" rel="noopener noreferrer">Click here</a> to learn more about him and explore his other projects.</p>
   <form method="dialog"><button>CLOSE</button></form>
 </dialog>
-<dialog id="winDialog" class="infoDialog" aria-labelledby="winTitle" lang="en">
+<dialog id="winDialog" class="infoDialog" aria-labelledby="winTitle">
   <h2 id="winTitle">TREMENDOUS VICTORY! 🎉</h2>
   <p>Nobody clears mines like you. Incredible job. The sea is safe, the ships are moving. A tremendous victory!</p>
   <form method="dialog"><button>CLOSE</button></form>
 </dialog>
-<dialog id="helpDialog" class="infoDialog" aria-labelledby="helpTitle" lang="en">
+<dialog id="helpDialog" class="infoDialog" aria-labelledby="helpTitle">
   <h2 id="helpTitle">HOW TO PLAY</h2>
   <p>Click or tap a sea square to reveal it. Each number tells you how many mines are in the eight surrounding squares. Reveal every safe square to win. Hit a mine and the game ends.</p>
   <p>Right-click to place or remove a flag. On a touch screen, tap the flag button first, then tap a square to mark it. Tap the flag button again to return to revealing squares. After placing your last flag, the game automatically returns to revealing squares.</p>
+  <p>Click a number that already has all its mines flagged to reveal the rest of the squares around it.</p>
   <p>The counter shows how many flags you have left. Tap the face to start a new game. Resizing or rotating the screen may restart the game.</p>
   <form method="dialog"><button>CLOSE</button></form>
 </dialog>
@@ -217,18 +225,21 @@
   let b, cols, lastRenderedState;
   function render() {
     const over = b.state === 'won' || b.state === 'lost';
+    // Cells are rebuilt on every render; keep keyboard focus on the same cell.
+    const focused = [...grid.children].indexOf(document.activeElement);
     grid.replaceChildren(...b.cells.map((c, i) => {
       const el = document.createElement('button');
       const show = c.open || (b.state === 'lost' && c.mine);
       el.textContent = show ? (c.mine ? '💣' : c.n || '') : c.flag ? '🚩' : '';
       el.className = (c.off ? 'off' : '') + (show ? ' open' : '') + (show && c.n && !c.mine ? ` n${c.n}` : '') + (c.open && c.mine ? ' boom' : '');
       if (c.off) { el.tabIndex = -1; el.ariaHidden = 'true'; return el; }
-      el.setAttribute('aria-label', show ? (c.mine ? 'mina' : `${c.n} minas ao redor`) : c.flag ? 'bandeira' : 'fechada');
+      el.setAttribute('aria-label', show ? (c.mine ? 'mine' : `${c.n} mines around`) : c.flag ? 'flag' : 'closed');
       el.disabled = over;
-      el.onclick = () => { flagMode.ariaPressed === 'true' ? toggleFlag(b, i) : reveal(b, i); render(); };
+      el.onclick = () => { c.open ? chord(b, i) : flagMode.ariaPressed === 'true' ? toggleFlag(b, i) : reveal(b, i); render(); };
       el.oncontextmenu = e => { e.preventDefault(); toggleFlag(b, i); render(); };
       return el;
     }));
+    if (focused >= 0) grid.children[focused].focus();
     const flagsLeft = b.mines - b.cells.filter(c => c.flag).length;
     left.textContent = flagsLeft;
     if (flagsLeft === 0 || over) flagMode.ariaPressed = 'false';
@@ -264,7 +275,7 @@
     grid.style.height = pct(gridHeight, IMG_H);
     grid.style.gridTemplateRows = `repeat(${ROWS}, 1fr)`;
     difficulty.dataset.level = level;
-    difficulty.setAttribute('aria-label', `Nível ${level + 1} de 3. Clique para mudar o nível`);
+    difficulty.setAttribute('aria-label', `Level ${level + 1} of 3. Click to change the level`);
     difficulty.title = `Level ${level + 1} / 3`;
     measureLand();
     positionBoats();
