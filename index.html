@@ -16,10 +16,11 @@
     :root { --edge: 0px; }
   }
   #game { position: absolute; top: 0; height: 100dvh; width: var(--game-width);
-          left: clamp(min(0px, 100vw - var(--game-width)), 50vw - var(--game-width) * 0.528, max(0px, 100vw - var(--game-width)));
+          --game-left: clamp(min(0px, 100vw - var(--game-width)), 50vw - var(--game-width) * 0.528, max(0px, 100vw - var(--game-width)));
+          left: var(--game-left);
           padding: calc(2 * var(--edge)); border: var(--edge) outset #fff; background: #c0c0c0; }
   @media (min-aspect-ratio: 2304/1846) {
-    #game { left: calc((100vw - var(--game-width)) / 2); }
+    #game { --game-left: calc((100vw - var(--game-width)) / 2); }
   }
   #mapFrame { border: var(--edge) inset #fff; background: #3d4f9a; }
   #stage { position: relative; width: 100%; container-type: inline-size; }
@@ -32,18 +33,19 @@
   #grid button.boom { background: #f00; }
   #grid button.off { cursor: default; }
   .n1{color:#00f}.n2{color:#008000}.n3{color:#f00}.n4{color:#000080}.n5{color:#800000}.n6{color:#008080}.n7{color:#000}.n8{color:#808080}
-  #hud { position: fixed; top: calc(1.33dvh + 16px); left: 0; right: 0; z-index: 3; display: grid; grid-template-columns: 1fr auto 1fr;
+  #hud { position: absolute; top: calc(1.33dvh + 16px); left: max(calc(3 * var(--edge) + 12px), calc(12px - var(--game-left) - var(--edge))); z-index: 3; display: flex;
          gap: 0.3em 0.6em; align-items: center; color: #fff; text-shadow: 0.14em 0.14em 0 #000;
          font-size: min(2.1675dvh, 2.89vw); white-space: nowrap; pointer-events: none; }
   #hud > * { pointer-events: auto; }
-  #counter { justify-self: end; display: flex; gap: 0.6em; align-items: center; }
-  #flagMode { justify-self: start; }
-  #face { grid-column: 2; justify-self: center; }
-  #flagMode, #title { grid-column: 3; grid-row: 1; }
-  #title { justify-self: start; margin-left: 3.46em; }
+  #counter, #flagControls { display: flex; gap: 0.6em; align-items: center; grid-row: 1; }
+  #counter { grid-column: 1; justify-self: end; }
+  #flagControls { grid-column: 3; justify-self: start; }
+  #face { grid-column: 2; grid-row: 1; justify-self: center; }
   .key { display: grid; place-items: center; font-size: 1.43em; width: 2em; height: 2em; padding: 0; border: 0.14em outset #fff; background: #c0c0c0; text-shadow: none; }
   button.key { cursor: pointer; }
   .key[aria-pressed="true"] { border-style: inset; background: #ffd23f; }
+  #difficulty[data-level="1"], #face.click-feedback { border-style: inset; background: #ffd23f; }
+  #difficulty[data-level="2"] { border-style: inset; background: #f33; }
   #face img { width: 100%; height: 100%; display: block; }
   #infoNav { position: absolute; z-index: 3; display: flex; gap: 20.4px; visibility: hidden; }
   #infoNav button { display: flex; flex-direction: column; align-items: center; gap: 6.8px; padding: 3.4px; border: 0; background: transparent; color: #fff; font: 8.5px 'Press Start 2P', monospace; text-shadow: 2px 2px #000; cursor: pointer; }
@@ -68,13 +70,12 @@
 </style>
 </head>
 <body>
-<div id="hud">
-  <div id="counter"><span id="left"></span><span class="key" aria-hidden="true">💣</span></div>
-  <button id="face" class="key" aria-label="Novo jogo"><img id="faceImg" src="trump.webp" alt=""></button>
-  <button id="flagMode" class="key" aria-pressed="false" aria-label="Modo bandeira (ou botão direito)">🚩</button>
-  <span id="title">ALLMINE</span>
-</div>
 <main id="game" aria-label="ALLMINE">
+<div id="hud">
+  <div id="counter"><span id="title">ALLMINE</span><button id="difficulty" class="key" data-level="0" aria-label="Nível 1 de 3. Clique para mudar o nível" title="Level 1 / 3">💣</button></div>
+  <button id="face" class="key" aria-label="Novo jogo"><img id="faceImg" src="trump.webp" alt=""></button>
+  <div id="flagControls"><button id="flagMode" class="key" aria-pressed="false" aria-label="Modo bandeira (ou botão direito)">🚩</button><span id="left"></span></div>
+</div>
 <div id="mapFrame">
 <div id="stage">
   <div id="bar"></div>
@@ -103,6 +104,7 @@
   <p>Click or tap a sea square to reveal it. Each number tells you how many mines are in the eight surrounding squares. Reveal every safe square to win. Hit a mine and the game ends.</p>
   <p>Right-click to place or remove a flag. On a touch screen, tap the flag button first, then tap a square to mark it. Tap the flag button again to return to revealing squares. After placing your last flag, the game automatically returns to revealing squares.</p>
   <p>The counter shows how many flags you have left. Tap the face to start a new game. Resizing or rotating the screen may restart the game.</p>
+  <p>Tap the bomb to cycle through three levels: the original field, two-thirds of the map, and the entire sea. Yellow means level 2; red means level 3. Changing levels starts a new game.</p>
   <form method="dialog"><button>CLOSE</button></form>
 </dialog>
 <script src="mines.js"></script>
@@ -117,7 +119,9 @@
     });
   });
   // Board geometry in hormuz.webp pixels (2304x1846). Tweak to move/resize the minefield.
-  const IMG_W = 2304, IMG_H = 1846, CELL = 64, BAR_Y = 176, GRID_Y = 176, COLS = 36, ROWS = 10;
+  const IMG_W = 2304, IMG_H = 1846, CELL = 64, BAR_Y = 176, GRID_Y = 176, COLS = 36;
+  let level = 0, ROWS = 10, gridHeight = ROWS * CELL;
+  const difficulty = document.getElementById('difficulty');
   const MINE_RATIO = 0.15;
 
   const pct = (v, total) => `${v / total * 100}%`;
@@ -158,7 +162,7 @@
     const navWidth = nav.offsetWidth, navHeight = nav.offsetHeight, margin = 8;
     const right = Math.min(rect.right, innerWidth) - margin - navWidth;
     const bottom = Math.min(rect.bottom, innerHeight) - margin - navHeight;
-    const top = grid.getBoundingClientRect().bottom + 4;
+    const top = rect.top + (GRID_Y + 10 * CELL) / IMG_H * rect.height + 4;
     let best, bestDistance = Infinity;
     for (let y = bottom; y >= top; y -= 8) {
       for (let x = right; x >= Math.max(rect.left, 0) + margin; x -= 8) {
@@ -185,7 +189,7 @@
     const S = 8, c = document.createElement('canvas');
     c.width = COLS * S; c.height = ROWS * S;
     const ctx = c.getContext('2d');
-    ctx.drawImage(map, 0, GRID_Y, COLS * CELL, ROWS * CELL, 0, 0, c.width, c.height);
+    ctx.drawImage(map, 0, GRID_Y, COLS * CELL, gridHeight, 0, 0, c.width, c.height);
     const a = ctx.getImageData(0, 0, c.width, c.height).data;
     land = Array.from({ length: COLS * ROWS }, (_, i) => {
       const cx = i % COLS, cy = Math.floor(i / COLS);
@@ -198,9 +202,16 @@
   // Cells fully on screen; only these are playable.
   function visibleCells() {
     const r = grid.getBoundingClientRect(), cw = r.width / COLS, ch = r.height / ROWS;
+    const bounds = map.getBoundingClientRect();
+    const nav = document.getElementById('infoNav');
+    const boats = nav.getBoundingClientRect();
+    const boatsVisible = getComputedStyle(nav).visibility === 'visible';
     return Array.from({ length: COLS * ROWS }, (_, i) => {
       const x = r.left + (i % COLS) * cw, y = r.top + Math.floor(i / COLS) * ch;
-      return x >= -1 && y >= -1 && x + cw <= innerWidth + 1 && y + ch <= innerHeight + 1;
+      const underBoats = boatsVisible && x < boats.right + 4 && x + cw > boats.left - 4
+        && y < boats.bottom + 4 && y + ch > boats.top - 4;
+      return !underBoats && x >= Math.max(0, bounds.left) - 1 && y >= bounds.top - 1
+        && x + cw <= Math.min(innerWidth, bounds.right) + 1 && y + ch <= Math.min(innerHeight, bounds.bottom) + 1;
     });
   }
 
@@ -222,7 +233,7 @@
     const flagsLeft = b.mines - b.cells.filter(c => c.flag).length;
     left.textContent = flagsLeft;
     if (flagsLeft === 0 || over) flagMode.ariaPressed = 'false';
-    faceImg.src = b.state === 'lost' ? 'trump-sad.webp' : 'trump.webp';
+    faceImg.src = b.state === 'lost' || face.classList.contains('click-feedback') ? 'trump-sad.webp' : 'trump.webp';
     if (b.state === 'won' && lastRenderedState !== 'won') document.getElementById('winDialog').showModal();
     lastRenderedState = b.state;
   }
@@ -235,18 +246,42 @@
     flagMode.ariaPressed = 'false';
     render();
   }
-  face.onclick = newGame;
+  let faceFeedbackTimer;
+  face.onclick = () => {
+    clearTimeout(faceFeedbackTimer);
+    face.classList.add('click-feedback');
+    newGame();
+    faceFeedbackTimer = setTimeout(() => {
+      face.classList.remove('click-feedback');
+      faceImg.src = b.state === 'lost' ? 'trump-sad.webp' : 'trump.webp';
+    }, 250);
+  };
+  difficulty.onclick = () => {
+    if (!land) return;
+    level = (level + 1) % 3;
+    const end = [GRID_Y + 10 * CELL, IMG_H * 2 / 3, IMG_H][level];
+    gridHeight = end - GRID_Y;
+    ROWS = Math.ceil(gridHeight / CELL);
+    grid.style.height = pct(gridHeight, IMG_H);
+    grid.style.gridTemplateRows = `repeat(${ROWS}, 1fr)`;
+    difficulty.dataset.level = level;
+    difficulty.setAttribute('aria-label', `Nível ${level + 1} de 3. Clique para mudar o nível`);
+    difficulty.title = `Level ${level + 1} / 3`;
+    measureLand();
+    positionBoats();
+    newGame();
+  };
   flagMode.onclick = () => { flagMode.ariaPressed = flagMode.ariaPressed === 'true' ? 'false' : 'true'; };
 
   map.decode().then(() => {
     measureLand();
     measureSea();
-    newGame();
     positionBoats();
+    newGame();
     // ponytail: a resize that changes the visible cells (e.g. rotating the phone) restarts the game.
     addEventListener('resize', () => {
-      if (visibleCells().join() !== cols.join()) newGame();
       positionBoats();
+      if (visibleCells().join() !== cols.join()) newGame();
     });
   });
 </script>
