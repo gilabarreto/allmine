@@ -45,6 +45,25 @@
   button.key { cursor: pointer; }
   .key[aria-pressed="true"] { border-style: inset; background: #ffd23f; }
   #face img { width: 100%; height: 100%; display: block; }
+  #infoNav { position: absolute; z-index: 3; display: flex; gap: 24px; visibility: hidden; }
+  #infoNav button { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px; border: 0; background: transparent; color: #fff; font: 10px 'Press Start 2P', monospace; text-shadow: 2px 2px #000; cursor: pointer; }
+  #infoNav .boat { font-size: 36px; line-height: 1.2; text-shadow: none; }
+  @media (max-width: 600px), (max-height: 500px) {
+    #infoNav { gap: 12px; }
+    #infoNav button { font-size: 8px; gap: 4px; padding: 2px; }
+    #infoNav .boat { font-size: 28px; }
+  }
+  @media (max-height: 500px) {
+    #infoNav button { font-size: 7px; gap: 3px; }
+    #infoNav .boat { font-size: 20px; }
+  }
+  #infoNav button:focus-visible, .infoDialog button:focus-visible { outline: 3px solid #ffd23f; outline-offset: 4px; }
+  .infoDialog { position: fixed; inset: 0; margin: auto; width: min(480px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 24px; border: 4px outset #fff; background: #c0c0c0; color: #161616; }
+  .infoDialog::backdrop { background: rgb(0 0 0 / 60%); }
+  .infoDialog h2 { font-size: 16px; margin-bottom: 20px; }
+  .infoDialog p { font-family: Arial, sans-serif; font-size: 17px; line-height: 1.5; margin-bottom: 16px; }
+  .infoDialog a { color: #000080; }
+  .infoDialog button { display: block; margin-left: auto; padding: 12px; border: 3px outset #fff; background: #c0c0c0; font: 10px 'Press Start 2P', monospace; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -58,9 +77,35 @@
   <div id="bar"></div>
   <div id="grid"></div>
   <img id="map" src="hormuz.webp" alt="Estreito de Ormuz">
+<nav id="infoNav" aria-label="Game information">
+  <button type="button" data-dialog="aboutDialog" aria-haspopup="dialog"><span>ABOUT</span><span class="boat" aria-hidden="true">⛵</span></button>
+  <button type="button" data-dialog="helpDialog" aria-haspopup="dialog"><span>HELP</span><span class="boat" aria-hidden="true">⛵</span></button>
+</nav>
 </div>
+<dialog id="aboutDialog" class="infoDialog" aria-labelledby="aboutTitle" lang="en">
+  <h2 id="aboutTitle">ABOUT ALLMINE</h2>
+  <p>ALLMINE is a modern-day take on the classic Minesweeper game. Clear the sea without hitting a mine: numbers show how many mines are nearby, and flags help you mark suspicious spots.</p>
+  <p>Victor Barreto, a developer and retro gaming enthusiast, recreated and developed this game. <a href="https://github.com/gilabarreto" target="_blank" rel="noopener noreferrer">Click here</a> to learn more about him and explore his other projects.</p>
+  <form method="dialog"><button>CLOSE</button></form>
+</dialog>
+<dialog id="helpDialog" class="infoDialog" aria-labelledby="helpTitle" lang="en">
+  <h2 id="helpTitle">HOW TO PLAY</h2>
+  <p>Click or tap a sea square to reveal it. Each number tells you how many mines are in the eight surrounding squares. Reveal every safe square to win. Hit a mine and the game ends.</p>
+  <p>Right-click to place or remove a flag. On a touch screen, tap the flag button first, then tap a square to mark it. Tap the flag button again to return to revealing squares.</p>
+  <p>The counter shows how many flags you have left. Tap the face to start a new game. Resizing or rotating the screen may restart the game.</p>
+  <form method="dialog"><button>CLOSE</button></form>
+</dialog>
 <script src="mines.js"></script>
 <script>
+  document.querySelectorAll('[data-dialog]').forEach(button => {
+    button.addEventListener('click', () => document.getElementById(button.dataset.dialog).showModal());
+  });
+  document.querySelectorAll('.infoDialog').forEach(dialog => {
+    dialog.addEventListener('click', event => {
+      const rect = dialog.getBoundingClientRect();
+      if (event.target === dialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) dialog.close();
+    });
+  });
   // Board geometry in hormuz.webp pixels (2304x1846). Tweak to move/resize the minefield.
   const IMG_W = 2304, IMG_H = 1846, CELL = 64, BAR_Y = 200, GRID_Y = 264, COLS = 36, ROWS = 10;
   const MINE_RATIO = 0.15;
@@ -76,6 +121,56 @@
 
   // A cell is land when most of it is opaque in the map (the sea is transparent).
   let land;
+  let seaMask;
+  // An integral alpha mask lets us check that the entire navigation fits over sea.
+  function measureSea() {
+    const canvas = document.createElement('canvas');
+    canvas.width = IMG_W / 4; canvas.height = Math.ceil(IMG_H / 4);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(map, 0, 0, canvas.width, canvas.height);
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const stride = canvas.width + 1;
+    const sums = new Uint32Array(stride * (canvas.height + 1));
+    for (let y = 1; y <= canvas.height; y++) {
+      let row = 0;
+      for (let x = 1; x <= canvas.width; x++) {
+        row += pixels[((y - 1) * canvas.width + x - 1) * 4 + 3] > 16 ? 1 : 0;
+        sums[y * stride + x] = sums[(y - 1) * stride + x] + row;
+      }
+    }
+    seaMask = { width: canvas.width, height: canvas.height, stride, sums };
+  }
+
+  function positionBoats() {
+    const nav = document.getElementById('infoNav');
+    const rect = map.getBoundingClientRect();
+    const { width, height, stride, sums } = seaMask;
+    const navWidth = nav.offsetWidth, navHeight = nav.offsetHeight, margin = 16;
+    const right = innerWidth - margin - navWidth;
+    const bottom = innerHeight - margin - navHeight;
+    const top = Math.max(margin, grid.getBoundingClientRect().bottom + 4);
+    let best, bestDistance = Infinity;
+    for (let y = bottom; y >= top; y -= 8) {
+      for (let x = right; x >= margin; x -= 8) {
+        const distance = (right - x) ** 2 + (bottom - y) ** 2;
+        if (distance >= bestDistance) continue;
+        const x1 = Math.floor((x - rect.left - 4) / rect.width * width);
+        const y1 = Math.floor((y - rect.top - 4) / rect.height * height);
+        const x2 = Math.ceil((x + navWidth - rect.left + 4) / rect.width * width);
+        const y2 = Math.ceil((y + navHeight - rect.top + 4) / rect.height * height);
+        if (x1 < 0 || y1 < 0 || x2 > width || y2 > height) continue;
+        const landPixels = sums[y2 * stride + x2] - sums[y1 * stride + x2]
+          - sums[y2 * stride + x1] + sums[y1 * stride + x1];
+        if (landPixels === 0) { best = { x, y }; bestDistance = distance; }
+      }
+    }
+    nav.style.visibility = best ? 'visible' : 'hidden';
+    if (best) {
+      nav.style.left = `${best.x - rect.left}px`;
+      nav.style.top = `${best.y - rect.top}px`;
+    }
+  }
+
   function measureLand() {
     const S = 8, c = document.createElement('canvas');
     c.width = COLS * S; c.height = ROWS * S;
@@ -130,9 +225,14 @@
 
   map.decode().then(() => {
     measureLand();
+    measureSea();
     newGame();
+    positionBoats();
     // ponytail: a resize that changes the visible cells (e.g. rotating the phone) restarts the game.
-    addEventListener('resize', () => { if (visibleCells().join() !== cols.join()) newGame(); });
+    addEventListener('resize', () => {
+      if (visibleCells().join() !== cols.join()) newGame();
+      positionBoats();
+    });
   });
 </script>
 </body>
