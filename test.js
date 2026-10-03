@@ -29,4 +29,10 @@ reveal(m, 40, rand);
 assert.ok(m.cells.every(c => !c.off || (!c.mine && !c.open)));
 m.cells.forEach((c, i) => { if (!c.mine && !c.off) reveal(m, i); });
 assert.strictEqual(m.state, 'won');
+// Flags are capped at the mine count.
+const f = makeBoard(9, 9, 2);
+for (let i = 0; i < 5; i++) toggleFlag(f, i);
+assert.strictEqual(f.cells.filter(c => c.flag).length, 2);
+toggleFlag(f, 0); toggleFlag(f, 3);
+assert.ok(!f.cells[0].flag && f.cells[3].flag, 'unflagging frees a flag');
 console.log('ok');

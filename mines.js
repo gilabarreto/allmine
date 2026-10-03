@@ -43,9 +43,12 @@ function reveal(b, i, rand = Math.random) {
   if (b.cells.every(c => c.mine || c.open || c.off)) b.state = 'won';
 }
 
+// No more flags than mines.
 function toggleFlag(b, i) {
   const c = b.cells[i];
-  if (b.state !== 'won' && b.state !== 'lost' && !c.open && !c.off) c.flag = !c.flag;
+  if (b.state === 'won' || b.state === 'lost' || c.open || c.off) return;
+  if (!c.flag && b.cells.filter(d => d.flag).length >= b.mines) return;
+  c.flag = !c.flag;
 }
 
 if (typeof module !== 'undefined') module.exports = { makeBoard, neighbors, reveal, toggleFlag };
