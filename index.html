@@ -7,55 +7,56 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; }
-  /* Fixed body clips the oversized map; plain overflow: hidden lets mobile browsers widen the layout viewport. */
   html, body { height: 100%; overflow: hidden; }
   body { position: fixed; inset: 0; }
   body { display: grid; place-items: center; background: #3d4f9a; font-family: 'Press Start 2P', monospace; }
-  /* Everything inside #stage is placed in % of the map image, so it scales with it. */
-  /* Cover the screen: the map is scaled to touch every side, and the overflow is clipped (body overflow: hidden).
-     Anchored to the top (the minefield is in the upper half) and centered on the strait (x 1216 of 2304),
-     clamped so no edge of the screen is left uncovered. Cells cut off leave the game (see visibleCells()). */
-  :root { --w: max(100vw, 100dvh * 2304 / 1846); }
-  #stage { position: absolute; top: 0; width: var(--w);
-           left: clamp(100vw - var(--w), 50vw - var(--w) * 0.528, 0px); container-type: inline-size; }
+  /* Full-height map with its original proportions; narrow screens crop the sides. */
+  :root { --edge: min(0.6dvh, 5px); --game-width: calc((100dvh - 8 * var(--edge)) * 2304 / 1846 + 8 * var(--edge)); }
+  @media (max-width: 1199px) {
+    :root { --edge: 0px; }
+  }
+  #game { position: absolute; top: 0; height: 100dvh; width: var(--game-width);
+          left: clamp(min(0px, 100vw - var(--game-width)), 50vw - var(--game-width) * 0.528, max(0px, 100vw - var(--game-width)));
+          padding: calc(2 * var(--edge)); border: var(--edge) outset #fff; background: #c0c0c0; }
+  @media (min-aspect-ratio: 2304/1846) {
+    #game { left: calc((100vw - var(--game-width)) / 2); }
+  }
+  #mapFrame { border: var(--edge) inset #fff; background: #3d4f9a; }
+  #stage { position: relative; width: 100%; container-type: inline-size; }
   #map { position: relative; z-index: 2; display: block; width: 100%; pointer-events: none; }
   #bar, #grid { position: absolute; left: 0; width: 100%; }
-  #bar { display: flex; justify-content: center; align-items: center; background: #c0c0c0; border-bottom: 0.3cqw solid #808080; }
+  #bar { display: none; }
   #grid { display: grid; }
   #grid button { padding: 0; font: 1.4cqw 'Press Start 2P', monospace; border: 0.25cqw outset #fff; background: #c0c0c0; cursor: pointer; }
   #grid button.open { border: 1px solid #808080; cursor: default; }
   #grid button.boom { background: #f00; }
   #grid button.off { cursor: default; }
   .n1{color:#00f}.n2{color:#008000}.n3{color:#f00}.n4{color:#000080}.n5{color:#800000}.n6{color:#008080}.n7{color:#000}.n8{color:#808080}
-  /* Face button at screen center: [count][bomb] [face] [flag], ALLMINE under the face.
-     Sizes in em off a font-size that follows the smaller of screen width/height, so everything shrinks with the screen. */
-  #hud { position: fixed; top: 12px; left: 0; right: 0; z-index: 3; display: grid; grid-template-columns: 1fr auto 1fr;
+  #hud { position: fixed; top: calc(1.33dvh + 16px); left: 0; right: 0; z-index: 3; display: grid; grid-template-columns: 1fr auto 1fr;
          gap: 0.3em 0.6em; align-items: center; color: #fff; text-shadow: 0.14em 0.14em 0 #000;
-         font-size: calc(min(3dvh, 1.5vw + 8px) * 0.85); white-space: nowrap; pointer-events: none; }
+         font-size: min(2.1675dvh, 2.89vw); white-space: nowrap; pointer-events: none; }
   #hud > * { pointer-events: auto; }
   #counter { justify-self: end; display: flex; gap: 0.6em; align-items: center; }
   #flagMode { justify-self: start; }
-  #face, #title { grid-column: 2; justify-self: center; }
-  #title { margin-top: 0.8em; }
-  @media (min-width: 768px) and (max-width: 1199px) {
-    #flagMode, #title { grid-column: 3; grid-row: 1; }
-    #title { justify-self: start; margin-top: 0; margin-left: 3.46em; }
-  }
+  #face { grid-column: 2; justify-self: center; }
+  #flagMode, #title { grid-column: 3; grid-row: 1; }
+  #title { justify-self: start; margin-left: 3.46em; }
   .key { display: grid; place-items: center; font-size: 1.43em; width: 2em; height: 2em; padding: 0; border: 0.14em outset #fff; background: #c0c0c0; text-shadow: none; }
   button.key { cursor: pointer; }
   .key[aria-pressed="true"] { border-style: inset; background: #ffd23f; }
   #face img { width: 100%; height: 100%; display: block; }
-  #infoNav { position: absolute; z-index: 3; display: flex; gap: 24px; visibility: hidden; }
-  #infoNav button { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px; border: 0; background: transparent; color: #fff; font: 10px 'Press Start 2P', monospace; text-shadow: 2px 2px #000; cursor: pointer; }
-  #infoNav .boat { font-size: 36px; line-height: 1.2; text-shadow: none; }
+  #infoNav { position: absolute; z-index: 3; display: flex; gap: 20.4px; visibility: hidden; }
+  #infoNav button { display: flex; flex-direction: column; align-items: center; gap: 6.8px; padding: 3.4px; border: 0; background: transparent; color: #fff; font: 8.5px 'Press Start 2P', monospace; text-shadow: 2px 2px #000; cursor: pointer; }
+  #infoNav .boat { font-size: 30.6px; line-height: 1.2; text-shadow: none; }
   @media (max-width: 600px), (max-height: 500px) {
-    #infoNav { gap: 12px; }
-    #infoNav button { font-size: 8px; gap: 4px; padding: 2px; }
-    #infoNav .boat { font-size: 28px; }
+    #infoNav { gap: 10.2px; }
+    #infoNav button { font-size: 6.8px; gap: 3.4px; padding: 1.7px; }
+    #infoNav .boat { font-size: 23.8px; }
   }
-  @media (max-height: 500px) {
-    #infoNav button { font-size: 7px; gap: 3px; }
-    #infoNav .boat { font-size: 20px; }
+  @media (max-width: 360px), (max-height: 500px) {
+    #infoNav { gap: 6.8px; }
+    #infoNav button { font-size: 5.95px; gap: 2.55px; }
+    #infoNav .boat { font-size: 17px; }
   }
   #infoNav button:focus-visible, .infoDialog button:focus-visible { outline: 3px solid #ffd23f; outline-offset: 4px; }
   .infoDialog { position: fixed; inset: 0; margin: auto; width: min(480px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 24px; border: 4px outset #fff; background: #c0c0c0; color: #161616; }
@@ -73,6 +74,8 @@
   <button id="flagMode" class="key" aria-pressed="false" aria-label="Modo bandeira (ou botão direito)">🚩</button>
   <span id="title">ALLMINE</span>
 </div>
+<main id="game" aria-label="ALLMINE">
+<div id="mapFrame">
 <div id="stage">
   <div id="bar"></div>
   <div id="grid"></div>
@@ -82,16 +85,23 @@
   <button type="button" data-dialog="helpDialog" aria-haspopup="dialog"><span>HELP</span><span class="boat" aria-hidden="true">⛵</span></button>
 </nav>
 </div>
+</div>
+</main>
 <dialog id="aboutDialog" class="infoDialog" aria-labelledby="aboutTitle" lang="en">
   <h2 id="aboutTitle">ABOUT ALLMINE</h2>
   <p>ALLMINE is a modern-day take on the classic Minesweeper game. Clear the sea without hitting a mine: numbers show how many mines are nearby, and flags help you mark suspicious spots.</p>
   <p>Victor Barreto, a developer and retro gaming enthusiast, recreated and developed this game. <a href="https://github.com/gilabarreto" target="_blank" rel="noopener noreferrer">Click here</a> to learn more about him and explore his other projects.</p>
   <form method="dialog"><button>CLOSE</button></form>
 </dialog>
+<dialog id="winDialog" class="infoDialog" aria-labelledby="winTitle" lang="en">
+  <h2 id="winTitle">TREMENDOUS VICTORY! 🎉</h2>
+  <p>Nobody clears mines like you. Incredible job. The sea is safe, the ships are moving. A tremendous victory!</p>
+  <form method="dialog"><button>CLOSE</button></form>
+</dialog>
 <dialog id="helpDialog" class="infoDialog" aria-labelledby="helpTitle" lang="en">
   <h2 id="helpTitle">HOW TO PLAY</h2>
   <p>Click or tap a sea square to reveal it. Each number tells you how many mines are in the eight surrounding squares. Reveal every safe square to win. Hit a mine and the game ends.</p>
-  <p>Right-click to place or remove a flag. On a touch screen, tap the flag button first, then tap a square to mark it. Tap the flag button again to return to revealing squares.</p>
+  <p>Right-click to place or remove a flag. On a touch screen, tap the flag button first, then tap a square to mark it. Tap the flag button again to return to revealing squares. After placing your last flag, the game automatically returns to revealing squares.</p>
   <p>The counter shows how many flags you have left. Tap the face to start a new game. Resizing or rotating the screen may restart the game.</p>
   <form method="dialog"><button>CLOSE</button></form>
 </dialog>
@@ -107,7 +117,7 @@
     });
   });
   // Board geometry in hormuz.webp pixels (2304x1846). Tweak to move/resize the minefield.
-  const IMG_W = 2304, IMG_H = 1846, CELL = 64, BAR_Y = 200, GRID_Y = 264, COLS = 36, ROWS = 10;
+  const IMG_W = 2304, IMG_H = 1846, CELL = 64, BAR_Y = 176, GRID_Y = 176, COLS = 36, ROWS = 10;
   const MINE_RATIO = 0.15;
 
   const pct = (v, total) => `${v / total * 100}%`;
@@ -145,13 +155,13 @@
     const nav = document.getElementById('infoNav');
     const rect = map.getBoundingClientRect();
     const { width, height, stride, sums } = seaMask;
-    const navWidth = nav.offsetWidth, navHeight = nav.offsetHeight, margin = 16;
-    const right = innerWidth - margin - navWidth;
-    const bottom = innerHeight - margin - navHeight;
-    const top = Math.max(margin, grid.getBoundingClientRect().bottom + 4);
+    const navWidth = nav.offsetWidth, navHeight = nav.offsetHeight, margin = 8;
+    const right = Math.min(rect.right, innerWidth) - margin - navWidth;
+    const bottom = Math.min(rect.bottom, innerHeight) - margin - navHeight;
+    const top = grid.getBoundingClientRect().bottom + 4;
     let best, bestDistance = Infinity;
     for (let y = bottom; y >= top; y -= 8) {
-      for (let x = right; x >= margin; x -= 8) {
+      for (let x = right; x >= Math.max(rect.left, 0) + margin; x -= 8) {
         const distance = (right - x) ** 2 + (bottom - y) ** 2;
         if (distance >= bestDistance) continue;
         const x1 = Math.floor((x - rect.left - 4) / rect.width * width);
@@ -194,7 +204,7 @@
     });
   }
 
-  let b, cols;
+  let b, cols, lastRenderedState;
   function render() {
     const over = b.state === 'won' || b.state === 'lost';
     grid.replaceChildren(...b.cells.map((c, i) => {
@@ -209,8 +219,12 @@
       el.oncontextmenu = e => { e.preventDefault(); toggleFlag(b, i); render(); };
       return el;
     }));
-    left.textContent = b.mines - b.cells.filter(c => c.flag).length;
+    const flagsLeft = b.mines - b.cells.filter(c => c.flag).length;
+    left.textContent = flagsLeft;
+    if (flagsLeft === 0 || over) flagMode.ariaPressed = 'false';
     faceImg.src = b.state === 'lost' ? 'trump-sad.webp' : 'trump.webp';
+    if (b.state === 'won' && lastRenderedState !== 'won') document.getElementById('winDialog').showModal();
+    lastRenderedState = b.state;
   }
 
   function newGame() {
@@ -218,6 +232,7 @@
     const off = i => land[i] || !cols[i];
     const sea = land.filter((_, i) => !off(i)).length;
     b = makeBoard(COLS, ROWS, Math.round(sea * MINE_RATIO), off);
+    flagMode.ariaPressed = 'false';
     render();
   }
   face.onclick = newGame;

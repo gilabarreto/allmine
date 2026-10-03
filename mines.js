@@ -29,9 +29,9 @@ function plant(b, safe, rand) {
 
 function reveal(b, i, rand = Math.random) {
   if (b.state === 'won' || b.state === 'lost') return;
-  if (b.state === 'ready') { plant(b, i, rand); b.state = 'playing'; }
   const c = b.cells[i];
   if (c.open || c.flag || c.off) return;
+  if (b.state === 'ready') { plant(b, i, rand); b.state = 'playing'; }
   if (c.mine) { c.open = true; b.state = 'lost'; return; }
   const stack = [i];
   while (stack.length) {
