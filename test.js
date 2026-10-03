@@ -73,4 +73,10 @@ assert.ok(safeClosed.length >= wrong.cells[w].n);
 safeClosed.slice(0, wrong.cells[w].n).forEach(j => toggleFlag(wrong, j));
 chord(wrong, w);
 assert.strictEqual(wrong.state, 'lost', 'wrong flag explodes');
+// Winning flags every mine, like the classic game.
+const auto = makeBoard(9, 9, 10);
+reveal(auto, 40, rand);
+auto.cells.forEach((c, i) => { if (!c.mine) reveal(auto, i); });
+assert.strictEqual(auto.state, 'won');
+assert.ok(auto.cells.every(c => c.flag === c.mine), 'all mines flagged on win');
 console.log('ok');

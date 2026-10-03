@@ -40,7 +40,10 @@ function reveal(b, i, rand = Math.random) {
     d.open = true;
     if (d.n === 0) stack.push(...neighbors(b, j));
   }
-  if (b.cells.every(c => c.mine || c.open || c.off)) b.state = 'won';
+  if (b.cells.every(c => c.mine || c.open || c.off)) {
+    b.state = 'won';
+    b.cells.forEach(c => { c.flag = c.mine; });
+  }
 }
 
 // No more flags than mines.

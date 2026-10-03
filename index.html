@@ -53,6 +53,8 @@
   .key[aria-pressed="true"] { border-style: inset; background: #ffd23f; }
   #difficulty[data-level="1"], #face.click-feedback { border-style: inset; background: #ffd23f; }
   #difficulty[data-level="2"] { border-style: inset; background: #f33; }
+  #time { display: flex; align-items: center; }
+  #time::before { content: '⏱\FE0F'; font-size: 1.43em; margin-right: 0.3em; text-shadow: none; }
   #face img { width: 100%; height: 100%; display: block; }
   #infoNav { position: absolute; z-index: 3; display: flex; gap: 20.4px; visibility: hidden; }
   #infoNav button { display: flex; flex-direction: column; align-items: center; gap: 6.8px; padding: 3.4px; border: 0; background: transparent; color: #fff; font: 8.5px 'Press Start 2P', monospace; text-shadow: 2px 2px #000; cursor: pointer; }
@@ -81,7 +83,7 @@
 <div id="hud">
   <div id="counter"><span id="title">ALLMINE</span><button id="difficulty" class="key" data-level="0" aria-label="Level 1 of 3. Click to change the level" title="Level 1 / 3">💣</button></div>
   <button id="face" class="key" aria-label="New game"><img id="faceImg" src="trump.webp" alt=""></button>
-  <div id="flagControls"><button id="flagMode" class="key" aria-pressed="false" aria-label="Flag mode (or right-click)">🚩</button><span id="left"></span></div>
+  <div id="flagControls"><button id="flagMode" class="key" aria-pressed="false" aria-label="Flag mode (or right-click)">🚩</button><span id="left"></span><span id="time" role="timer" aria-label="Seconds">0</span></div>
 </div>
 <div id="mapFrame">
 <div id="stage">
@@ -104,6 +106,7 @@
 <dialog id="winDialog" class="infoDialog" aria-labelledby="winTitle">
   <h2 id="winTitle">TREMENDOUS VICTORY! 🎉</h2>
   <p>Nobody clears mines like you. Incredible job. The sea is safe, the ships are moving. A tremendous victory!</p>
+  <p id="winTime"></p>
   <form method="dialog"><button>CLOSE</button></form>
 </dialog>
 <dialog id="helpDialog" class="infoDialog" aria-labelledby="helpTitle">
@@ -111,7 +114,7 @@
   <p>Click or tap a sea square to reveal it. Each number tells you how many mines are in the eight surrounding squares. Reveal every safe square to win. Hit a mine and the game ends.</p>
   <p>Right-click to place or remove a flag. On a touch screen, tap the flag button first, then tap a square to mark it. Tap the flag button again to return to revealing squares. After placing your last flag, the game automatically returns to revealing squares.</p>
   <p>Click a number that already has all its mines flagged to reveal the rest of the squares around it.</p>
-  <p>The counter shows how many flags you have left. Tap the face to start a new game. Resizing or rotating the screen may restart the game.</p>
+  <p>The counter shows how many flags you have left, and the clock starts on your first reveal. Tap the face to start a new game. Resizing or rotating the screen may restart the game.</p>
   <form method="dialog"><button>CLOSE</button></form>
 </dialog>
 <script src="mines.js"></script>
@@ -222,7 +225,21 @@
     });
   }
 
-  let b, cols, lastRenderedState;
+  let b, cols, lastRenderedState, startedAt, timer;
+  const time = document.getElementById('time');
+  const seconds = () => Math.floor((Date.now() - startedAt) / 1000);
+  const tick = () => { time.textContent = seconds(); };
+
+  // Timer runs from the first reveal until the game ends; best time is kept per level.
+  function updateTimer(over) {
+    if (b.state === 'playing' && !timer) { startedAt = Date.now(); timer = setInterval(tick, 1000); }
+    if (!over || !timer) return;
+    clearInterval(timer); timer = null; tick();
+    if (b.state !== 'won') return;
+    const key = `allmine-best-${level}`, best = Math.min(seconds(), Number(localStorage.getItem(key)) || Infinity);
+    localStorage.setItem(key, best);
+    document.getElementById('winTime').textContent = `Time: ${seconds()}s. Best on level ${level + 1}: ${best}s.`;
+  }
   function render() {
     const over = b.state === 'won' || b.state === 'lost';
     // Cells are rebuilt on every render; keep keyboard focus on the same cell.
@@ -244,6 +261,7 @@
     left.textContent = flagsLeft;
     if (flagsLeft === 0 || over) flagMode.ariaPressed = 'false';
     faceImg.src = b.state === 'lost' || face.classList.contains('click-feedback') ? 'trump-sad.webp' : 'trump.webp';
+    updateTimer(over);
     if (b.state === 'won' && lastRenderedState !== 'won') document.getElementById('winDialog').showModal();
     lastRenderedState = b.state;
   }
@@ -253,6 +271,7 @@
     const off = i => land[i] || !cols[i];
     const sea = land.filter((_, i) => !off(i)).length;
     b = makeBoard(COLS, ROWS, Math.round(sea * MINE_RATIO), off);
+    clearInterval(timer); timer = null; time.textContent = 0;
     flagMode.ariaPressed = 'false';
     render();
   }
