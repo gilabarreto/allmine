@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ALLMINE</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #3d4f9a; font-family: 'Press Start 2P', monospace; }
+  /* Everything inside #stage is placed in % of the map image, so it scales with it. */
+  #stage { position: relative; width: max(100vw, 1150px); container-type: inline-size; }
+  #map { position: relative; z-index: 2; display: block; width: 100%; pointer-events: none; }
+  #bar, #grid { position: absolute; left: 0; width: 100%; }
+  #bar { display: flex; justify-content: center; align-items: center; background: #c0c0c0; border-bottom: 0.3cqw solid #808080; }
+  #face { font-size: 1.6cqw; width: 2.4cqw; height: 2.4cqw; padding: 0; border: 0.25cqw outset #fff; background: #c0c0c0; cursor: pointer; }
+  #grid { display: grid; }
+  #grid button { padding: 0; font: 1.4cqw 'Press Start 2P', monospace; border: 0.25cqw outset #fff; background: #c0c0c0; cursor: pointer; }
+  #grid button.open { border: 1px solid #808080; cursor: default; }
+  #grid button.boom { background: #f00; }
+  #grid button.off { cursor: default; }
+  .n1{color:#00f}.n2{color:#008000}.n3{color:#f00}.n4{color:#000080}.n5{color:#800000}.n6{color:#008080}.n7{color:#000}.n8{color:#808080}
+  #hud { position: fixed; top: 12px; left: 12px; z-index: 3; display: flex; gap: 12px; align-items: center; color: #fff; text-shadow: 2px 2px 0 #000; font-size: 14px; }
+  #hud button { font-size: 20px; width: 40px; height: 40px; border: 3px outset #fff; background: #c0c0c0; cursor: pointer; }
+  #hud button[aria-pressed="true"] { border-style: inset; background: #ffd23f; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <span>ALLMINE</span>
+  <span id="left"></span>
+  <button id="flagMode" aria-pressed="false" aria-label="Modo bandeira (ou botão direito)">🚩</button>
+</div>
+<div id="stage">
+  <div id="bar"><button id="face" aria-label="Novo jogo">🙂</button></div>
+  <div id="grid"></div>
+  <img id="map" src="hormuz.png" alt="Estreito de Ormuz">
+</div>
+<script src="mines.js"></script>
+<script>
+  // Board geometry in hormuz.png pixels (2304x1846). Tweak to move/resize the minefield.
+  const IMG_W = 2304, IMG_H = 1846, CELL = 64, BAR_Y = 200, GRID_Y = 264, COLS = 36, ROWS = 10;
+  const MINE_RATIO = 0.15;
+
+  const pct = (v, total) => `${v / total * 100}%`;
+  const grid = document.getElementById('grid'), bar = document.getElementById('bar'), face = document.getElementById('face');
+  const left = document.getElementById('left'), flagMode = document.getElementById('flagMode'), map = document.getElementById('map');
+  bar.style.top = pct(BAR_Y, IMG_H); bar.style.height = pct(GRID_Y - BAR_Y, IMG_H);
+  grid.style.top = pct(GRID_Y, IMG_H); grid.style.height = pct(ROWS * CELL, IMG_H);
+  grid.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+  grid.style.gridTemplateRows = `repeat(${ROWS}, 1fr)`;
+
+  // A cell is land when most of it is opaque in the map (the sea is transparent).
+  let land;
+  function measureLand() {
+    const S = 8, c = document.createElement('canvas');
+    c.width = COLS * S; c.height = ROWS * S;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(map, 0, GRID_Y, COLS * CELL, ROWS * CELL, 0, 0, c.width, c.height);
+    const a = ctx.getImageData(0, 0, c.width, c.height).data;
+    land = Array.from({ length: COLS * ROWS }, (_, i) => {
+      const cx = i % COLS, cy = Math.floor(i / COLS);
+      let opaque = 0;
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (a[((cy * S + y) * c.width + cx * S + x) * 4 + 3] > 128) opaque++;
+      return opaque > S * S / 2;
+    });
+  }
+
+  let b;
+  function render() {
+    const over = b.state === 'won' || b.state === 'lost';
+    grid.replaceChildren(...b.cells.map((c, i) => {
+      const el = document.createElement('button');
+      const show = c.open || (b.state === 'lost' && c.mine);
+      el.textContent = show ? (c.mine ? '💣' : c.n || '') : c.flag ? '🚩' : '';
+      el.className = (c.off ? 'off' : '') + (show ? ' open' : '') + (show && c.n && !c.mine ? ` n${c.n}` : '') + (c.open && c.mine ? ' boom' : '');
+      if (c.off) { el.tabIndex = -1; el.ariaHidden = 'true'; return el; }
+      el.setAttribute('aria-label', show ? (c.mine ? 'mina' : `${c.n} minas ao redor`) : c.flag ? 'bandeira' : 'fechada');
+      el.disabled = over;
+      el.onclick = () => { flagMode.ariaPressed === 'true' ? toggleFlag(b, i) : reveal(b, i); render(); };
+      el.oncontextmenu = e => { e.preventDefault(); toggleFlag(b, i); render(); };
+      return el;
+    }));
+    left.textContent = `💣${b.mines - b.cells.filter(c => c.flag).length}`;
+    face.textContent = { won: '😎', lost: '😵' }[b.state] || '🙂';
+  }
+
+  function newGame() {
+    const sea = land.filter(l => !l).length;
+    b = makeBoard(COLS, ROWS, Math.round(sea * MINE_RATIO), i => land[i]);
+    render();
+  }
+  face.onclick = newGame;
+  flagMode.onclick = () => { flagMode.ariaPressed = flagMode.ariaPressed === 'true' ? 'false' : 'true'; };
+
+  map.decode().then(() => {
+    measureLand();
+    newGame();
+    grid.scrollIntoView({ block: 'center', inline: 'center' });
+  });
+</script>
+</body>
+</html>
