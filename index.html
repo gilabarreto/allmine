@@ -7,9 +7,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; }
-  body { background: #3d4f9a; font-family: 'Press Start 2P', monospace; }
+  html, body { height: 100%; overflow: hidden; }
+  body { display: grid; place-items: center; background: #3d4f9a; font-family: 'Press Start 2P', monospace; }
   /* Everything inside #stage is placed in % of the map image, so it scales with it. */
-  #stage { position: relative; width: max(100vw, 1150px); container-type: inline-size; }
+  #stage { position: relative; width: min(100vw, 100dvh * 2304 / 1846); container-type: inline-size; }
   #map { position: relative; z-index: 2; display: block; width: 100%; pointer-events: none; }
   #bar, #grid { position: absolute; left: 0; width: 100%; }
   #bar { display: flex; justify-content: center; align-items: center; background: #c0c0c0; border-bottom: 0.3cqw solid #808080; }
@@ -99,7 +100,6 @@
   map.decode().then(() => {
     measureLand();
     newGame();
-    grid.scrollIntoView({ block: 'center', inline: 'center' });
   });
 </script>
 </body>
