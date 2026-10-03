@@ -16,7 +16,6 @@
   /* left: horizontal spot where the bar shows through the sea */
   #face { position: absolute; left: 54%; font-size: 1.6cqw; width: 2.4cqw; height: 2.4cqw; padding: 0; border: 0.25cqw outset #fff; background: #c0c0c0; cursor: pointer; }
   #face img { width: 100%; height: 100%; display: block; }
-  #face.lost img { filter: grayscale(1); transform: rotate(180deg); }
   #grid { display: grid; }
   #grid button { padding: 0; font: 1.4cqw 'Press Start 2P', monospace; border: 0.25cqw outset #fff; background: #c0c0c0; cursor: pointer; }
   #grid button.open { border: 1px solid #808080; cursor: default; }
@@ -35,7 +34,7 @@
   <button id="flagMode" aria-pressed="false" aria-label="Modo bandeira (ou botão direito)">🚩</button>
 </div>
 <div id="stage">
-  <div id="bar"><button id="face" aria-label="Novo jogo"><img src="trump.webp" alt=""></button></div>
+  <div id="bar"><button id="face" aria-label="Novo jogo"><img id="faceImg" src="trump.webp" alt=""></button></div>
   <div id="grid"></div>
   <img id="map" src="hormuz.webp" alt="Estreito de Ormuz">
 </div>
@@ -47,7 +46,8 @@
 
   const pct = (v, total) => `${v / total * 100}%`;
   const grid = document.getElementById('grid'), bar = document.getElementById('bar'), face = document.getElementById('face');
-  const left = document.getElementById('left'), flagMode = document.getElementById('flagMode'), map = document.getElementById('map');
+  const left = document.getElementById('left'), flagMode = document.getElementById('flagMode'), map = document.getElementById('map'), faceImg = document.getElementById('faceImg');
+  new Image().src = 'trump-sad.webp'; // preload so the swap is instant
   bar.style.top = pct(BAR_Y, IMG_H); bar.style.height = pct(GRID_Y - BAR_Y, IMG_H);
   grid.style.top = pct(GRID_Y, IMG_H); grid.style.height = pct(ROWS * CELL, IMG_H);
   grid.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
@@ -85,7 +85,7 @@
       return el;
     }));
     left.textContent = `💣${b.mines - b.cells.filter(c => c.flag).length}`;
-    face.className = b.state;
+    faceImg.src = b.state === 'lost' ? 'trump-sad.webp' : 'trump.webp';
   }
 
   function newGame() {
