@@ -37,6 +37,10 @@
   #flagMode { justify-self: start; }
   #face, #title { grid-column: 2; justify-self: center; }
   #title { margin-top: 0.8em; }
+  @media (min-width: 768px) and (max-width: 1199px) {
+    #flagMode, #title { grid-column: 3; grid-row: 1; }
+    #title { justify-self: start; margin-top: 0; margin-left: 3.46em; }
+  }
   .key { display: grid; place-items: center; font-size: 1.43em; width: 2em; height: 2em; padding: 0; border: 0.14em outset #fff; background: #c0c0c0; text-shadow: none; }
   button.key { cursor: pointer; }
   .key[aria-pressed="true"] { border-style: inset; background: #ffd23f; }
