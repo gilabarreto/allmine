@@ -28,15 +28,15 @@
   #grid button.off { cursor: default; }
   .n1{color:#00f}.n2{color:#008000}.n3{color:#f00}.n4{color:#000080}.n5{color:#800000}.n6{color:#008080}.n7{color:#000}.n8{color:#808080}
   /* Face button at screen center: [count][bomb] [face] [flag], ALLMINE under the face.
-     Sizes in em off a font-size that scales with the map (~1.7 cells per key), at least 16px (touch-size keys), capped by 5vw so the row fits. */
+     Sizes in em off a font-size that follows the smaller of screen width/height, so everything shrinks with the screen. */
   #hud { position: fixed; top: 12px; left: 0; right: 0; z-index: 3; display: grid; grid-template-columns: 1fr auto 1fr;
          gap: 0.3em 0.6em; align-items: center; color: #fff; text-shadow: 0.14em 0.14em 0 #000;
-         font-size: min(max(var(--w) * 0.0165, 16px), 5vw); white-space: nowrap; pointer-events: none; }
+         font-size: min(3dvh, 1.5vw + 8px); white-space: nowrap; pointer-events: none; }
   #hud > * { pointer-events: auto; }
   #counter { justify-self: end; display: flex; gap: 0.6em; align-items: center; }
   #flagMode { justify-self: start; }
   #face, #title { grid-column: 2; justify-self: center; }
-  #title { margin-top: 0.5em; }
+  #title { margin-top: 1.2em; }
   .key { display: grid; place-items: center; font-size: 1.43em; width: 2em; height: 2em; padding: 0; border: 0.14em outset #fff; background: #c0c0c0; text-shadow: none; }
   button.key { cursor: pointer; }
   .key[aria-pressed="true"] { border-style: inset; background: #ffd23f; }
