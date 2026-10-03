@@ -19,32 +19,34 @@
   #map { position: relative; z-index: 2; display: block; width: 100%; pointer-events: none; }
   #bar, #grid { position: absolute; left: 0; width: 100%; }
   #bar { display: flex; justify-content: center; align-items: center; background: #c0c0c0; border-bottom: 0.3cqw solid #808080; }
-  /* 2x its old in-map size (2.4% of the map width), never below a comfortable touch target. */
-  #face { position: fixed; top: 12px; right: 12px; z-index: 3; --s: max(48px, var(--w) * 0.048);
-          width: var(--s); height: var(--s); padding: 0; border: calc(var(--s) * 0.1) outset #fff; background: #c0c0c0; cursor: pointer; }
-  #face img { width: 100%; height: 100%; display: block; }
   #grid { display: grid; }
   #grid button { padding: 0; font: 1.4cqw 'Press Start 2P', monospace; border: 0.25cqw outset #fff; background: #c0c0c0; cursor: pointer; }
   #grid button.open { border: 1px solid #808080; cursor: default; }
   #grid button.boom { background: #f00; }
   #grid button.off { cursor: default; }
   .n1{color:#00f}.n2{color:#008000}.n3{color:#f00}.n4{color:#000080}.n5{color:#800000}.n6{color:#008080}.n7{color:#000}.n8{color:#808080}
-  /* Screen-centered, with #face's width reserved on both sides so they never overlap;
-     sizes in em so the whole HUD shrinks on narrow screens. */
-  #hud { position: fixed; top: 12px; left: 0; right: 0; padding: 0 calc(24px + max(48px, var(--w) * 0.048)); z-index: 3;
-         display: flex; justify-content: center; gap: 0.86em; align-items: center;
-         color: #fff; text-shadow: 0.14em 0.14em 0 #000; font-size: min(21px, 4.3vw); white-space: nowrap; }
-  #hud button { font-size: 1.43em; width: 2em; height: 2em; border: 0.14em outset #fff; background: #c0c0c0; cursor: pointer; }
-  #hud button[aria-pressed="true"] { border-style: inset; background: #ffd23f; }
+  /* Face button at screen center: [count][bomb] [face] [flag], ALLMINE under the face.
+     Sizes in em so the whole HUD shrinks on narrow screens. */
+  #hud { position: fixed; top: 12px; left: 0; right: 0; z-index: 3; display: grid; grid-template-columns: 1fr auto 1fr;
+         gap: 0.3em 0.6em; align-items: center; color: #fff; text-shadow: 0.14em 0.14em 0 #000;
+         font-size: min(21px, 5vw); white-space: nowrap; pointer-events: none; }
+  #hud > * { pointer-events: auto; }
+  #counter { justify-self: end; display: flex; gap: 0.6em; align-items: center; }
+  #flagMode { justify-self: start; }
+  #face, #title { grid-column: 2; justify-self: center; }
+  .key { display: grid; place-items: center; font-size: 1.43em; width: 2em; height: 2em; padding: 0; border: 0.14em outset #fff; background: #c0c0c0; text-shadow: none; }
+  button.key { cursor: pointer; }
+  .key[aria-pressed="true"] { border-style: inset; background: #ffd23f; }
+  #face img { width: 100%; height: 100%; display: block; }
 </style>
 </head>
 <body>
 <div id="hud">
-  <span>ALLMINE</span>
-  <span id="left"></span>
-  <button id="flagMode" aria-pressed="false" aria-label="Modo bandeira (ou botão direito)">🚩</button>
+  <div id="counter"><span id="left"></span><span class="key" aria-hidden="true">💣</span></div>
+  <button id="face" class="key" aria-label="Novo jogo"><img id="faceImg" src="trump.webp" alt=""></button>
+  <button id="flagMode" class="key" aria-pressed="false" aria-label="Modo bandeira (ou botão direito)">🚩</button>
+  <span id="title">ALLMINE</span>
 </div>
-<button id="face" aria-label="Novo jogo"><img id="faceImg" src="trump.webp" alt=""></button>
 <div id="stage">
   <div id="bar"></div>
   <div id="grid"></div>
@@ -105,7 +107,7 @@
       el.oncontextmenu = e => { e.preventDefault(); toggleFlag(b, i); render(); };
       return el;
     }));
-    left.textContent = `💣${b.mines - b.cells.filter(c => c.flag).length}`;
+    left.textContent = b.mines - b.cells.filter(c => c.flag).length;
     faceImg.src = b.state === 'lost' ? 'trump-sad.webp' : 'trump.webp';
   }
 
